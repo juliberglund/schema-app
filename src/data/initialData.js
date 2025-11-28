@@ -1,5 +1,5 @@
 export const NAV_SCREENS = [
-  { id: "home", label: "Översikt", icon: "🏠" },
+  { id: "home", label: "Hem", icon: "🏠" },
   { id: "clients", label: "Brukare", icon: "👥" },
-  { id: "add", label: "Lägg till", icon: "➕" },
+  { id: "add", label: "Admin", icon: "➕" },
 ];

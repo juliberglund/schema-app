@@ -5,7 +5,7 @@ export const THEMES = {
     card: "#ffffff",
     text: "#111827",
     muted: "#667085",
-    primary: "#5a54ff",
+    primary: "#bddeb3",
     accent: "#22c55e",
     danger: "#ef4444",
     border: "#e5e7eb",

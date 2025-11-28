@@ -22,6 +22,13 @@ export const formatShortDate = (date) =>
     month: "2-digit",
   }).format(date);
 
+export const formatFullDate = (date) =>
+  new Intl.DateTimeFormat("sv-SE", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+
 export const weekDaysFrom = (date) => {
   const current = new Date(date);
   const day = current.getDay();

@@ -27,7 +27,7 @@ export const EditActivityModal = ({
     reminder: "30",
     date: "",
     isRecurring: false,
-    recurringDay: 1,
+    recurringDay: [],
     instructions: "",
   });
 
@@ -41,9 +41,11 @@ export const EditActivityModal = ({
         date: activity.date || "",
         isRecurring: !!activity.isRecurring,
         recurringDay:
-          typeof activity.recurringDay === "number"
+          Array.isArray(activity.recurringDay)
             ? activity.recurringDay
-            : 1,
+            : typeof activity.recurringDay === "number"
+            ? [activity.recurringDay]
+            : [],
         instructions: activity.instructions || "",
       });
     }
@@ -53,15 +55,20 @@ export const EditActivityModal = ({
 
   const updateForm = (patch) => setForm((prev) => ({ ...prev, ...patch }));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) return;
-    onSave(activity.id, {
-      ...form,
-      reminder: Number(form.reminder) || 0,
-      date: form.isRecurring ? null : form.date,
-      isRecurring: form.isRecurring,
-      recurringDay: form.isRecurring ? form.recurringDay : null,
-    });
+    try {
+      await onSave(activity.id, {
+        ...form,
+        reminder: Number(form.reminder) || 0,
+        date: form.isRecurring ? null : form.date,
+        isRecurring: form.isRecurring,
+        recurringDay: form.isRecurring ? form.recurringDay : [],
+      });
+      onClose();
+    } catch {
+      // leave modal open on failure
+    }
   };
 
   return (
@@ -190,36 +197,45 @@ export const EditActivityModal = ({
               </>
             ) : (
               <>
-                <Text style={[styles.label, { color: theme.text }]}>
-                  Veckodag
-                </Text>
-                <View style={styles.weekdayRow}>
-                  {WEEK_LABELS.map((label, index) => (
-                    <TouchableOpacity
-                      key={label}
-                      onPress={() => updateForm({ recurringDay: index })}
-                      style={[
-                        styles.weekdayButton,
-                        {
-                          backgroundColor:
-                            form.recurringDay === index
-                              ? theme.primary
-                              : theme.background,
-                          borderColor: theme.border,
-                        },
-                      ]}
+            <Text style={[styles.label, { color: theme.text }]}>
+              Veckodagar
+            </Text>
+            <View style={styles.weekdayRow}>
+              {WEEK_LABELS.map((label, index) => {
+                const selected = form.recurringDay?.includes(index);
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    onPress={() => {
+                      const next = new Set(form.recurringDay || []);
+                      if (selected) {
+                        next.delete(index);
+                      } else {
+                        next.add(index);
+                      }
+                      updateForm({ recurringDay: Array.from(next).sort() });
+                    }}
+                    style={[
+                      styles.weekdayButton,
+                      {
+                        backgroundColor: selected
+                          ? theme.primary
+                          : theme.background,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: selected ? "#fff" : theme.text,
+                      }}
                     >
-                      <Text
-                        style={{
-                          color:
-                            form.recurringDay === index ? "#fff" : theme.text,
-                        }}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
               </>
             )}
 

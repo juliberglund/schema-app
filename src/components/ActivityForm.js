@@ -7,13 +7,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  formatDate,
-  formatHumanDate,
-  weekDaysFrom,
-} from "../utils/dateUtils";
+import { formatDate, formatHumanDate, weekDaysFrom } from "../utils/dateUtils";
 
-const WEEK_LABELS = ["Sö", "Må", "Ti", "On", "To", "Fr", "Lö"];
+const WEEK_LABELS = ["Må", "Ti", "On", "To", "Fr", "Lö", "Sö"];
 
 export const ActivityForm = ({
   clients,
@@ -148,7 +144,9 @@ export const ActivityForm = ({
             style={[
               styles.toggleButton,
               {
-                backgroundColor: !isRecurring ? theme.primary : theme.background,
+                backgroundColor: !isRecurring
+                  ? theme.primary
+                  : theme.background,
                 borderColor: theme.border,
               },
             ]}
@@ -187,7 +185,9 @@ export const ActivityForm = ({
                       styles.dayPill,
                       {
                         backgroundColor:
-                          activityDate === key ? theme.primary : theme.background,
+                          activityDate === key
+                            ? theme.primary
+                            : theme.background,
                         borderColor: theme.border,
                       },
                     ]}
@@ -208,30 +208,48 @@ export const ActivityForm = ({
           </>
         ) : (
           <>
-            <Text style={[styles.label, { color: theme.text }]}>Veckodag</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              Veckodagar
+            </Text>
             <View style={styles.weekdayRow}>
-              {WEEK_LABELS.map((label, index) => (
-                <TouchableOpacity
-                  key={label}
-                  onPress={() => setRecurringDay(index)}
-                  style={[
-                    styles.weekdayButton,
-                    {
-                      backgroundColor:
-                        recurringDay === index
+              {WEEK_LABELS.map((label, index) => {
+                const selected = Array.isArray(recurringDay)
+                  ? recurringDay.includes(index)
+                  : recurringDay === index;
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    onPress={() => {
+                      const nextSet = new Set(
+                        Array.isArray(recurringDay)
+                          ? recurringDay
+                          : typeof recurringDay === "number"
+                            ? [recurringDay]
+                            : []
+                      );
+                      if (selected) {
+                        nextSet.delete(index);
+                      } else {
+                        nextSet.add(index);
+                      }
+                      setRecurringDay(Array.from(nextSet).sort());
+                    }}
+                    style={[
+                      styles.weekdayButton,
+                      {
+                        backgroundColor: selected
                           ? theme.primary
                           : theme.background,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{ color: recurringDay === index ? "#fff" : theme.text }}
+                        borderColor: theme.border,
+                      },
+                    ]}
                   >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text style={{ color: selected ? "#fff" : theme.text }}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </>
         )}

@@ -1,62 +1,54 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { formatShortDate } from "../utils/dateUtils";
+import { formatFullDate } from "../utils/dateUtils";
 
 export const DateNavigator = ({ selectedDate, onPrevDay, onNextDay, theme }) => (
-  <View
-    style={[
-      styles.container,
-      { backgroundColor: theme.card, borderColor: theme.border },
-    ]}
-  >
-    <TouchableOpacity
-      style={[styles.dayButton, { backgroundColor: theme.background }]}
-      onPress={onPrevDay}
-    >
-      <Text style={{ color: theme.text }}>{"< Föregående dag"}</Text>
+  <View style={[styles.wrapper, { backgroundColor: theme.card }]}>
+    <TouchableOpacity style={styles.arrow} onPress={onPrevDay}>
+      <Text style={[styles.arrowText, { color: theme.primary }]}>‹</Text>
     </TouchableOpacity>
-    <View style={styles.dateCenter}>
-      <Text style={[styles.dateLabel, { color: theme.primary }]}>
-        {formatShortDate(selectedDate)}
-      </Text>
-      <Text style={[styles.weekday, { color: theme.accent }]}>
-        {selectedDate.toLocaleDateString("sv-SE", { weekday: "long" })}
+    <View style={styles.center}>
+      <Text style={[styles.dateText, { color: theme.text }]}>
+        {formatFullDate(selectedDate)}
       </Text>
     </View>
-    <TouchableOpacity
-      style={[styles.dayButton, { backgroundColor: theme.background }]}
-      onPress={onNextDay}
-    >
-      <Text style={{ color: theme.text }}>{"Nästa dag >"}</Text>
+    <TouchableOpacity style={styles.arrow} onPress={onNextDay}>
+      <Text style={[styles.arrowText, { color: theme.primary }]}>›</Text>
     </TouchableOpacity>
   </View>
 );
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 16,
+  wrapper: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
+    borderRadius: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
-  dayButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
-  dateCenter: {
+  arrow: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     alignItems: "center",
-    gap: 4,
+    justifyContent: "center",
   },
-  dateLabel: {
+  arrowText: {
+    fontSize: 28,
+    fontWeight: "600",
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+  },
+  dateText: {
     fontSize: 20,
     fontWeight: "700",
-    textTransform: "capitalize",
-  },
-  weekday: {
     textTransform: "capitalize",
   },
 });

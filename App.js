@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StatusBar } from "expo-status-bar";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   addDoc,
@@ -56,12 +56,14 @@ export default function App() {
   const [activityTime, setActivityTime] = useState("09:00");
   const [activityDate, setActivityDate] = useState(formatDate(new Date()));
   const [isRecurring, setIsRecurring] = useState(false);
-  const [recurringDay, setRecurringDay] = useState(new Date().getDay());
+  const [recurringDay, setRecurringDay] = useState([new Date().getDay()]);
   const [activityInstructions, setActivityInstructions] = useState("");
   const [activityReminder, setActivityReminder] = useState("30");
   const [activityFeedback, setActivityFeedback] = useState("");
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activityToast, setActivityToast] = useState(null);
+  const toastTimer = useRef(null);
 
   const theme = THEMES[themeKey];
   const themeOptions = Object.entries(THEMES);
@@ -113,12 +115,21 @@ export default function App() {
     }
   }, [clients, selectedClientId]);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
   const dayKey = formatDate(selectedDate);
   const todaysActivities = useMemo(() => {
     const enriched = activities
       .flatMap((activity) => {
         if (activity.isRecurring) {
-          if (activity.recurringDay === selectedDate.getDay()) {
+          const days = Array.isArray(activity.recurringDay)
+            ? activity.recurringDay
+            : [activity.recurringDay];
+          if (days.includes(selectedDate.getDay())) {
             return [{ ...activity, occurrenceDate: dayKey }];
           }
           return [];
@@ -147,7 +158,10 @@ export default function App() {
       const blocks = activities
         .flatMap((activity) => {
           if (activity.isRecurring) {
-            if (activity.recurringDay === date.getDay()) {
+            const days = Array.isArray(activity.recurringDay)
+              ? activity.recurringDay
+              : [activity.recurringDay];
+            if (days.includes(date.getDay())) {
               return [{ ...activity, occurrenceDate: key }];
             }
             return [];
@@ -176,14 +190,30 @@ export default function App() {
 
   const selectedClientActivities = useMemo(() => {
     if (!selectedClientId) return [];
+    const now = new Date();
+    const keyFor = (activity) => {
+      if (activity.isRecurring && Array.isArray(activity.recurringDay)) {
+        const current = now.getDay();
+        const days = activity.recurringDay.slice().sort();
+        const next = days.find((day) => day >= current) ?? days[0] + 7;
+        const diff = next - current;
+        const time = activity.time || "00:00";
+        return `${String(diff).padStart(2, "0")}-${time}`;
+      }
+      const date = activity.date || "9999-12-31";
+      return `${date}-${activity.time || "00:00"}`;
+    };
     return activities
       .filter((activity) => activity.clientId === selectedClientId)
-      .sort((a, b) => formatTime(a.time).localeCompare(formatTime(b.time)));
+      .sort((a, b) => keyFor(a).localeCompare(keyFor(b)));
   }, [activities, selectedClientId]);
 
   const handleStatusChange = async (activity, status) => {
+    const nextStatus = activity.status === status ? "open" : status;
     try {
-      await updateDoc(doc(db, "activities", activity.id), { status });
+      await updateDoc(doc(db, "activities", activity.id), {
+        status: nextStatus,
+      });
     } catch (error) {
       console.warn("Kunde inte uppdatera status", error);
     }
@@ -215,6 +245,24 @@ export default function App() {
     }
   };
 
+  const resetActivityForm = () => {
+    const defaultClient = clients[0]?.id ?? "";
+    setActivityClient(defaultClient);
+    setActivityTitle("");
+    setActivityTime("09:00");
+    setActivityReminder("30");
+    setActivityInstructions("");
+    setIsRecurring(false);
+    setRecurringDay([new Date().getDay()]);
+    setActivityDate(formatDate(new Date()));
+  };
+
+  const showActivityToast = (message) => {
+    setActivityToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setActivityToast(null), 5000);
+  };
+
   const handleAddActivity = async () => {
     if (!activityClient || !activityTitle.trim()) {
       setActivityFeedback("Välj brukare och titel.");
@@ -231,15 +279,19 @@ export default function App() {
         time: activityTime,
         date: isRecurring ? null : activityDate,
         isRecurring,
-        recurringDay: isRecurring ? recurringDay : null,
+        recurringDay: isRecurring
+          ? Array.isArray(recurringDay)
+            ? recurringDay
+            : [recurringDay]
+          : null,
         instructions: activityInstructions.trim(),
         reminder: Number(activityReminder) || 0,
         status: "open",
         createdAt: serverTimestamp(),
       });
-      setActivityTitle("");
-      setActivityInstructions("");
-      setActivityFeedback("Aktivitet sparad.");
+      resetActivityForm();
+      showActivityToast("Aktivitet sparad");
+      setActivityFeedback("");
     } catch (error) {
       setActivityFeedback("Kunde inte spara aktiviteten.");
     }
@@ -257,16 +309,23 @@ export default function App() {
     try {
       await updateDoc(doc(db, "activities", activityId), {
         ...updates,
+        recurringDay: updates.isRecurring
+          ? Array.isArray(updates.recurringDay)
+            ? updates.recurringDay
+            : [updates.recurringDay]
+          : null,
       });
-      setEditingActivity(null);
     } catch (error) {
       console.warn("Kunde inte uppdatera aktivitet", error);
+      throw error;
     }
   };
 
   if (!isLoggedIn) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: theme.background }]}
+      >
         <StatusBar style={theme.statusBar} />
         <LoginScreen onLogin={() => setIsLoggedIn(true)} theme={theme} />
       </SafeAreaView>
@@ -277,13 +336,18 @@ export default function App() {
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       <StatusBar style={theme.statusBar} />
       <View style={styles.container}>
-        <HeaderNav theme={theme} onPressMenu={() => setMenuOpen(true)} />
+        <HeaderNav
+          theme={theme}
+          navScreens={NAV_SCREENS}
+          activeScreen={activeScreen}
+          onChangeScreen={setActiveScreen}
+          onPressMenu={() => setMenuOpen(true)}
+        />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 32 }}
         >
-
           {activeScreen === "home" && (
             <>
               <DateNavigator
@@ -366,6 +430,21 @@ export default function App() {
                 onSubmit={handleAddActivity}
                 theme={theme}
               />
+              {activityToast && (
+                <View
+                  style={[
+                    styles.toast,
+                    { backgroundColor: theme.card, shadowColor: theme.text },
+                  ]}
+                >
+                  <Text style={{ flex: 1, color: theme.text }}>
+                    {activityToast}
+                  </Text>
+                  <TouchableOpacity onPress={() => setActivityToast(null)}>
+                    <Text style={{ color: theme.primary }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </>
           )}
         </ScrollView>
@@ -415,5 +494,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 60,
+  },
+  toast: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 40,
+    padding: 16,
+    borderRadius: 20,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
 });
